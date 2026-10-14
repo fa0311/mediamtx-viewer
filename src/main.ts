@@ -44,8 +44,18 @@ function setStatus(message: string, tone: "" | "warn" | "bad" = ""): void {
   statusElement.dataset.tone = tone;
 }
 
+/** Keeps the screen on while the page is visible; phones would otherwise dim mid-stream. */
+function keepScreenAwake(): void {
+  const request = () => {
+    if (document.visibilityState === "visible") void navigator.wakeLock?.request("screen").catch(() => {});
+  };
+  document.addEventListener("visibilitychange", request);
+  request();
+}
+
 /** Connects, waits for the session to end, reports why, and reconnects. */
 async function play(): Promise<never> {
+  keepScreenAwake();
   for (;;) {
     const current = createTransport();
     transport = current;

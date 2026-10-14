@@ -38,6 +38,7 @@ select {
   inset: 0;
   overflow: hidden;
   cursor: grab;
+  touch-action: none; /* pinch and drag are handled here, not by the browser */
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
     linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
