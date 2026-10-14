@@ -1,0 +1,16 @@
+{
+  "name": "mediamtx-viewer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "tsc --noEmit && vite build"
+  },
+  "dependencies": {
+    "hls.js": "^1.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0"
+  }
+}

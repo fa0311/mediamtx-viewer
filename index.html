@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MediaMTX Viewer</title>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <main class="stage" id="stage">
+      <div class="status" id="status">connecting</div>
+      <div class="offline-guide" id="offlineGuide" hidden>
+        <strong>このライブはまだ始まっていません</strong>
+        <span>OBSからすぐに配信を始められます。</span>
+        <button id="openPublishGuideButton" type="button">配信を始める</button>
+      </div>
+    </main>
+
+    <nav class="toolbar" aria-label="viewer controls">
+      <strong class="stream-name" id="streamName">live</strong>
+      <select id="mode" title="Transport">
+        <option value="webrtc">WebRTC</option>
+        <option value="hls">HLS</option>
+        <option value="moq">MoQ</option>
+      </select>
+      <label class="volume" title="Volume">
+        <span>VOL</span>
+        <input id="volume" type="range" min="0" max="1" step="0.01" value="0.7" />
+      </label>
+      <button id="zoomOutButton" type="button" title="Zoom out">-</button>
+      <button id="zoomInButton" type="button" title="Zoom in">+</button>
+      <button id="resetButton" type="button" title="Reset view">1:1</button>
+      <button id="shotButton" type="button" title="Copy screenshot">SHOT</button>
+      <button id="debugButton" type="button" title="Debug panel">DBG</button>
+    </nav>
+
+    <aside class="debug" id="debugPanel" aria-label="debug panel">
+      <div class="debug-head">
+        <strong>debug</strong>
+        <button id="closeDebugButton" type="button" title="Close debug">X</button>
+      </div>
+      <dl class="metrics">
+        <div><dt>bitrate</dt><dd id="bitrate">0 kbps</dd></div>
+        <div><dt>fps</dt><dd id="fps">0</dd></div>
+        <div><dt>codec</dt><dd id="codec">unknown</dd></div>
+        <div><dt>size</dt><dd id="size">0x0</dd></div>
+        <div><dt>buffer</dt><dd id="buffer">n/a</dd></div>
+        <div><dt>latency</dt><dd id="latency">n/a</dd></div>
+        <div><dt>connection</dt><dd id="connection">idle</dd></div>
+        <div><dt>reconnects</dt><dd id="reconnects">0</dd></div>
+        <div class="wide"><dt>last error</dt><dd id="lastError">none</dd></div>
+      </dl>
+      <canvas id="graph" width="520" height="150"></canvas>
+    </aside>
+
+    <dialog class="publish-dialog" id="publishDialog">
+      <div class="publish-dialog-head">
+        <div>
+          <span class="eyebrow">OBS / WHIP</span>
+          <h1>ライブ配信を始める</h1>
+        </div>
+        <button id="closePublishDialogButton" type="button" aria-label="閉じる">×</button>
+      </div>
+
+      <label class="publish-field" for="publishKey">
+        <span>配信キー</span>
+        <small>日本語・記号も使えます（/を除く）</small>
+      </label>
+      <div class="publish-row">
+        <input id="publishKey" type="text" maxlength="64" autocomplete="off" spellcheck="false" />
+        <button id="generatePublishKeyButton" type="button">ランダム生成</button>
+      </div>
+      <p class="field-error" id="publishKeyError" role="alert"></p>
+
+      <label class="publish-field" for="whipUrl"><span>OBSに設定するWHIP URL</span></label>
+      <div class="publish-row">
+        <input id="whipUrl" type="text" readonly />
+        <button id="copyWhipUrlButton" type="button">コピー</button>
+      </div>
+
+      <label class="publish-field" for="viewerUrl">
+        <span>視聴者に共有するリンク</span>
+        <small>日本語ドメイン・日本語パスで表示します</small>
+      </label>
+      <div class="publish-row three">
+        <input id="viewerUrl" type="text" readonly />
+        <button id="copyViewerUrlButton" type="button">コピー</button>
+        <button id="openViewerUrlButton" type="button">開く</button>
+      </div>
+
+      <ol class="publish-steps">
+        <li>OBSの「設定」→「配信」を開く</li>
+        <li>サービスで「WHIP」を選び、上のURLを設定する</li>
+        <li>「配信開始」を押す</li>
+      </ol>
+
+      <div class="note">
+        <strong>H.264がおすすめ</strong>
+        <span>パケットロスがあっても比較的安定して配信・再生できます。MoQ 再生は H.264 / H.265 のみ対応です。</span>
+      </div>
+      <div class="note">
+        <strong>映像ビットレートは10,000 Kbpsがおすすめ</strong>
+        <span>OBSの「設定」→「出力」で映像ビットレートを設定します。</span>
+      </div>
+    </dialog>
+  </body>
+</html>
