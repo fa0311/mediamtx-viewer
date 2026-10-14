@@ -29,8 +29,7 @@ nginx は MediaMTX に `mediamtx:8889` (WebRTC) と `mediamtx:8888` (HLS) で到
 配信キーは UTF-8 の hex にして MediaMTX のパス名にする（`live` → `6c697665`）。
 
 MoQ は WebTransport のためリバースプロキシを通せない。8892/TCP+UDP を MediaMTX に直接届け、
-`mediamtx.yml` の `moqAllowOrigins` にこのページのオリジンを入れておく。MoQ 再生の対応コーデックは
-H.264 / H.265 / AV1 と Opus / AAC。
+`mediamtx.yml` の `moqAllowOrigins` にこのページのオリジンを入れておく。MoQ で再生できるコーデックはブラウザの WebCodecs が復号できるもの全部で、viewer 側では絞らない。
 
 ## 開発
 

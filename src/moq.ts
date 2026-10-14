@@ -1,4 +1,4 @@
-import { AudioPlayer, VideoRenderer, isAudioCodec, isVideoCodec, type CatalogTrack } from "./moq/media";
+import { AudioPlayer, VideoRenderer, type CatalogTrack } from "./moq/media";
 import { MoqSession, RequestError, type MoqObject } from "./moq/session";
 import { StreamOffline, type Stats, type Transport } from "./transport";
 
@@ -26,18 +26,18 @@ export class MoqTransport implements Transport {
     if (catalogObject?.trackAlias !== catalogAlias) throw new Error("expected the catalog as the first object");
     const catalog = JSON.parse(new TextDecoder().decode(catalogObject.payload)) as { tracks: CatalogTrack[] };
 
+    // The catalog marks audio tracks with a sample rate; the first track of each kind is played.
     const routes = new Map<bigint, (object: MoqObject) => void>();
     for (const track of catalog.tracks) {
-      if (!this.video && isVideoCodec(track.codec)) {
+      if (track.samplerate === undefined && !this.video) {
         this.video = new VideoRenderer(this.element, track, onClose);
         routes.set(await session.subscribe(track.name), inGroupOrder(this.video));
-      } else if (!this.audio && isAudioCodec(track.codec)) {
+      } else if (track.samplerate !== undefined && !this.audio) {
         this.audio = new AudioPlayer(track, onClose);
         if (this.volume !== null) this.audio.setVolume(this.volume);
         routes.set(await session.subscribe(track.name), inGroupOrder(this.audio));
       }
     }
-    if (!this.video) throw new Error(`no playable video track in catalog: ${catalog.tracks.map((t) => t.codec).join(", ")}`);
 
     void session.readObjects((object) => {
       const route = routes.get(object.trackAlias);

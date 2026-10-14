@@ -11,21 +11,17 @@ export interface CatalogTrack {
   initData?: string;
 }
 
-export const isVideoCodec = (codec: string) => /^(avc3|hev1|av01|vp09|vp8)/.test(codec);
-export const isAudioCodec = (codec: string) => /^(opus|mp4a)/.test(codec);
-
 const VIDEO_CLOCK = 90000; // MediaMTX stamps video in RTP clock units and omits clockrate
 const START_CODE = Uint8Array.of(0, 0, 0, 1);
 const MAX_AUDIO_LAG_SECONDS = 0.5;
 
-const VIDEO_FAMILIES = { avc3: "h264", hev1: "h265", av01: "av1" } as const;
-type VideoFamily = (typeof VIDEO_FAMILIES)[keyof typeof VIDEO_FAMILIES];
-
-/** Decodes H.264/H.265/AV1 with WebCodecs and paints each frame on a canvas as soon as it is ready. */
+/**
+ * Decodes whatever WebCodecs accepts and paints each frame on a canvas as soon as it is ready.
+ * Whether a codec plays is up to the browser; unsupported ones surface as decoder errors.
+ */
 export class VideoRenderer {
   private readonly context: CanvasRenderingContext2D;
   private readonly decoder: VideoDecoder;
-  private readonly family: VideoFamily;
   bytes = 0;
   frames = 0;
 
@@ -34,26 +30,17 @@ export class VideoRenderer {
     readonly track: CatalogTrack,
     onError: (error: Error) => void,
   ) {
-    const family = VIDEO_FAMILIES[track.codec.slice(0, 4) as keyof typeof VIDEO_FAMILIES];
-    if (!family) throw new Error(`MoQ playback supports H.264/H.265/AV1 only, the stream is ${track.codec}; use WebRTC or HLS`);
-    this.family = family;
     this.context = canvas.getContext("2d")!;
     this.decoder = new VideoDecoder({ output: (frame) => this.paint(frame), error: onError });
-    // Without a description WebCodecs expects Annex B (H.264/H.265) or temporal units (AV1) with in-band headers.
+    // No description: parameter sets travel in-band (Annex B for H.264/H.265, OBUs for AV1).
     this.decoder.configure({ codec: track.codec, optimizeForLatency: true });
   }
 
   push(object: MoqObject): void {
     this.bytes += object.payload.length;
-    const timestamp = microseconds(object.timestamp, this.track.clockrate ?? VIDEO_CLOCK);
+    const { type, data } = chunkOf(this.track.codec, object.payload);
     this.decoder.decode(
-      this.family === "av1"
-        ? new EncodedVideoChunk({ type: hasSequenceHeader(object.payload) ? "key" : "delta", timestamp, data: object.payload })
-        : new EncodedVideoChunk({
-            type: isKeyFrame(object.payload, this.family === "h265") ? "key" : "delta",
-            timestamp,
-            data: annexB(object.payload),
-          }),
+      new EncodedVideoChunk({ type, data, timestamp: microseconds(object.timestamp, this.track.clockrate ?? VIDEO_CLOCK) }),
     );
   }
 
@@ -72,7 +59,7 @@ export class VideoRenderer {
   }
 }
 
-/** Decodes Opus/AAC with WebCodecs and schedules the PCM back-to-back on an AudioContext. */
+/** Decodes with WebCodecs and schedules the PCM back-to-back on an AudioContext. */
 export class AudioPlayer {
   private readonly context = new AudioContext();
   private readonly gain = this.context.createGain();
@@ -157,6 +144,19 @@ function isKeyFrame(avcc: Uint8Array, hevc: boolean): boolean {
     if (hevc ? type >= 16 && type <= 21 : type === 5) return true;
   }
   return false;
+}
+
+/**
+ * H.264/H.265 arrive AVCC-framed and are converted to Annex B; other codecs pass through.
+ * Key frames are detected where the bitstream makes it cheap; otherwise every chunk is marked
+ * "key", which decoders accept (MediaMTX's own reader does the same).
+ */
+function chunkOf(codec: string, payload: Uint8Array): { type: EncodedVideoChunkType; data: Uint8Array } {
+  if (/^(avc1|avc3)/.test(codec)) return { type: isKeyFrame(payload, false) ? "key" : "delta", data: annexB(payload) };
+  if (/^(hev1|hvc1)/.test(codec)) return { type: isKeyFrame(payload, true) ? "key" : "delta", data: annexB(payload) };
+  if (codec.startsWith("av01")) return { type: hasSequenceHeader(payload) ? "key" : "delta", data: payload };
+  if (codec === "vp8") return { type: (payload[0]! & 1) === 0 ? "key" : "delta", data: payload };
+  return { type: "key", data: payload };
 }
 
 /** AV1 random access points carry a Sequence Header OBU (type 1) in their temporal unit. */
