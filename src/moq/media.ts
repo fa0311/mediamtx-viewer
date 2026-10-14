@@ -18,11 +18,14 @@ const VIDEO_CLOCK = 90000; // MediaMTX stamps video in RTP clock units and omits
 const START_CODE = Uint8Array.of(0, 0, 0, 1);
 const MAX_AUDIO_LAG_SECONDS = 0.5;
 
-/** Decodes H.264/H.265 with WebCodecs and paints each frame on a canvas as soon as it is ready. */
+const VIDEO_FAMILIES = { avc3: "h264", hev1: "h265", av01: "av1" } as const;
+type VideoFamily = (typeof VIDEO_FAMILIES)[keyof typeof VIDEO_FAMILIES];
+
+/** Decodes H.264/H.265/AV1 with WebCodecs and paints each frame on a canvas as soon as it is ready. */
 export class VideoRenderer {
   private readonly context: CanvasRenderingContext2D;
   private readonly decoder: VideoDecoder;
-  private readonly hevc: boolean;
+  private readonly family: VideoFamily;
   bytes = 0;
   frames = 0;
 
@@ -31,24 +34,26 @@ export class VideoRenderer {
     readonly track: CatalogTrack,
     onError: (error: Error) => void,
   ) {
-    if (!/^(avc3|hev1)/.test(track.codec)) {
-      throw new Error(`MoQ playback supports H.264/H.265 only, the stream is ${track.codec}; use WebRTC or HLS`);
-    }
-    this.hevc = track.codec.startsWith("hev1");
+    const family = VIDEO_FAMILIES[track.codec.slice(0, 4) as keyof typeof VIDEO_FAMILIES];
+    if (!family) throw new Error(`MoQ playback supports H.264/H.265/AV1 only, the stream is ${track.codec}; use WebRTC or HLS`);
+    this.family = family;
     this.context = canvas.getContext("2d")!;
     this.decoder = new VideoDecoder({ output: (frame) => this.paint(frame), error: onError });
-    // Without a description WebCodecs expects Annex B with in-band parameter sets.
+    // Without a description WebCodecs expects Annex B (H.264/H.265) or temporal units (AV1) with in-band headers.
     this.decoder.configure({ codec: track.codec, optimizeForLatency: true });
   }
 
   push(object: MoqObject): void {
     this.bytes += object.payload.length;
+    const timestamp = microseconds(object.timestamp, this.track.clockrate ?? VIDEO_CLOCK);
     this.decoder.decode(
-      new EncodedVideoChunk({
-        type: isKeyFrame(object.payload, this.hevc) ? "key" : "delta",
-        timestamp: microseconds(object.timestamp, this.track.clockrate ?? VIDEO_CLOCK),
-        data: annexB(object.payload),
-      }),
+      this.family === "av1"
+        ? new EncodedVideoChunk({ type: hasSequenceHeader(object.payload) ? "key" : "delta", timestamp, data: object.payload })
+        : new EncodedVideoChunk({
+            type: isKeyFrame(object.payload, this.family === "h265") ? "key" : "delta",
+            timestamp,
+            data: annexB(object.payload),
+          }),
     );
   }
 
@@ -150,6 +155,24 @@ function isKeyFrame(avcc: Uint8Array, hevc: boolean): boolean {
   for (const { nal } of nalUnits(avcc)) {
     const type = hevc ? (nal[0]! >> 1) & 0x3f : nal[0]! & 0x1f;
     if (hevc ? type >= 16 && type <= 21 : type === 5) return true;
+  }
+  return false;
+}
+
+/** AV1 random access points carry a Sequence Header OBU (type 1) in their temporal unit. */
+function hasSequenceHeader(temporalUnit: Uint8Array): boolean {
+  for (let offset = 0; offset < temporalUnit.length; ) {
+    const header = temporalUnit[offset++]!;
+    const type = (header >> 3) & 0x0f;
+    if (header & 0x04) offset++; // extension byte
+    if (!(header & 0x02)) return type === 1; // no size field: the OBU runs to the end
+    let size = 0;
+    for (let shift = 0, byte = 0x80; byte & 0x80; shift += 7) {
+      byte = temporalUnit[offset++]!;
+      size |= (byte & 0x7f) << shift;
+    }
+    if (type === 1) return true;
+    offset += size;
   }
   return false;
 }

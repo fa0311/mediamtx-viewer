@@ -3,10 +3,9 @@ export function mediamtxPath(key: string): string {
   return Array.from(new TextEncoder().encode(key), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/** The first path segment is the stream key; the root shows "live". */
+/** The first path segment is the stream key; the root has none and only offers the publish guide. */
 export function streamKeyFromLocation(): string {
-  const segment = location.pathname.split("/").find(Boolean) ?? "";
-  return segment ? decodeURIComponent(segment) : "live";
+  return decodeURIComponent(location.pathname.split("/").find(Boolean) ?? "");
 }
 
 /** Keeps non-ASCII characters readable while escaping the rest, for share links. */

@@ -119,7 +119,7 @@ function drawGraph(): void {
 }
 
 function bindControls(): void {
-  $("streamName").textContent = key;
+  $("streamName").textContent = key || "-";
   const modeSelect = $<HTMLSelectElement>("mode");
   modeSelect.value = mode;
   modeSelect.addEventListener("change", () => {
@@ -145,4 +145,9 @@ function bindControls(): void {
 bindControls();
 setupPublishGuide(key);
 setInterval(() => void renderStats(), 1000);
-play().catch((error: Error) => setStatus(`fatal: ${error.message}`, "bad"));
+if (key) {
+  play().catch((error: Error) => setStatus(`fatal: ${error.message}`, "bad"));
+} else {
+  setStatus("no stream key in the URL; pick one in the guide");
+  $("offlineGuide").hidden = false;
+}

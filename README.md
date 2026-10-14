@@ -30,7 +30,7 @@ nginx は MediaMTX に `mediamtx:8889` (WebRTC) と `mediamtx:8888` (HLS) で到
 
 MoQ は WebTransport のためリバースプロキシを通せない。8892/TCP+UDP を MediaMTX に直接届け、
 `mediamtx.yml` の `moqAllowOrigins` にこのページのオリジンを入れておく。MoQ 再生の対応コーデックは
-H.264 / H.265 と Opus / AAC。
+H.264 / H.265 / AV1 と Opus / AAC。
 
 ## 開発
 
