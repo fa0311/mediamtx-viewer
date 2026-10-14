@@ -3,7 +3,7 @@ export function mediamtxPath(key: string): string {
   return Array.from(new TextEncoder().encode(key), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/** The first path segment is the stream key; the root has none and only offers the publish guide. */
+/** The first path segment is the stream key; empty at the root. */
 export function streamKeyFromLocation(): string {
   return decodeURIComponent(location.pathname.split("/").find(Boolean) ?? "");
 }

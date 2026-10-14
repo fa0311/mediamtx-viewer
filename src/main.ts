@@ -13,9 +13,9 @@ type Mode = "webrtc" | "hls" | "moq";
 
 const params = new URLSearchParams(location.search);
 const mode: Mode = params.has("moq") ? "moq" : params.has("hls") ? "hls" : "webrtc";
-// The bare root only offers the publish guide; the root with a mode query (e.g. "/?hls") plays the
-// unadvertised default key, so it stays a shortcut for people who know it.
-const key = streamKeyFromLocation() || (location.search ? "live" : "");
+// The root plays an unadvertised default key; while nothing is published there it just shows the guide.
+const urlKey = streamKeyFromLocation();
+const key = urlKey || "live";
 const path = mediamtxPath(key);
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -121,7 +121,7 @@ function drawGraph(): void {
 }
 
 function bindControls(): void {
-  $("streamName").textContent = key || "-";
+  $("streamName").textContent = urlKey || "-";
   const modeSelect = $<HTMLSelectElement>("mode");
   modeSelect.value = mode;
   modeSelect.addEventListener("change", () => {
@@ -145,11 +145,6 @@ function bindControls(): void {
 }
 
 bindControls();
-setupPublishGuide(key);
+setupPublishGuide(urlKey);
 setInterval(() => void renderStats(), 1000);
-if (key) {
-  play().catch((error: Error) => setStatus(`fatal: ${error.message}`, "bad"));
-} else {
-  setStatus("no stream key in the URL; pick one in the guide");
-  $("offlineGuide").hidden = false;
-}
+play().catch((error: Error) => setStatus(`fatal: ${error.message}`, "bad"));
