@@ -13,7 +13,9 @@ type Mode = "webrtc" | "hls" | "moq";
 
 const params = new URLSearchParams(location.search);
 const mode: Mode = params.has("moq") ? "moq" : params.has("hls") ? "hls" : "webrtc";
-const key = streamKeyFromLocation();
+// The bare root only offers the publish guide; the root with a mode query (e.g. "/?hls") plays the
+// unadvertised default key, so it stays a shortcut for people who know it.
+const key = streamKeyFromLocation() || (location.search ? "live" : "");
 const path = mediamtxPath(key);
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
